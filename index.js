@@ -27,7 +27,7 @@ app.post("/chat", async (req, res) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "gpt-3.5-turbo",
+        model: "gpt-4o-mini",   // 🔥 اینجا تغییر کرد
         messages: [
           { role: "user", content: message }
         ],
@@ -36,12 +36,14 @@ app.post("/chat", async (req, res) => {
 
     const data = await response.json();
 
+    console.log("OpenAI Response:", data); // برای دیباگ
+
     res.json({
       reply: data.choices?.[0]?.message?.content || "No response"
     });
 
   } catch (error) {
-    console.error(error);
+    console.error("Server Error:", error);
     res.status(500).json({ error: "Server error" });
   }
 });
