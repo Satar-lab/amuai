@@ -46,8 +46,23 @@ app.post("/chat", async (req, res) => {
 
     if (!response.ok) {
       console.error("OpenAI API Error:", data);
+      
+      // Extract error message from OpenAI response
+      let errorMessage = "OpenAI API error occurred";
+      if (data.error) {
+        if (typeof data.error === 'string') {
+          errorMessage = data.error;
+        } else if (data.error.message) {
+          errorMessage = data.error.message;
+        } else if (data.error.error && data.error.error.message) {
+          errorMessage = data.error.error.message;
+        } else {
+          errorMessage = JSON.stringify(data.error);
+        }
+      }
+      
       return res.status(500).json({ 
-        reply: `OpenAI API error: ${data.error?.message || JSON.stringify(data)}` 
+        reply: errorMessage
       });
     }
 
