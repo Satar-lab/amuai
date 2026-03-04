@@ -27,19 +27,21 @@ app.post("/chat", async (req, res) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "gpt-4o-mini",   // 🔥 اینجا تغییر کرد
-        messages: [
-          { role: "user", content: message }
-        ],
+        model: "gpt-4o-mini",
+        messages: [{ role: "user", content: message }],
       }),
     });
 
     const data = await response.json();
 
-    console.log("OpenAI Response:", data); // برای دیباگ
+    console.log("OpenAI Response:", data);
+
+    if (!response.ok) {
+      return res.status(500).json({ error: data });
+    }
 
     res.json({
-      reply: data.choices?.[0]?.message?.content || "No response"
+      reply: data.choices[0].message.content
     });
 
   } catch (error) {
