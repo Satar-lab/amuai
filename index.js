@@ -6,7 +6,8 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-const OPENAI_KEY = process.env.OPENAI_KEY;
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
+const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-1.5-flash";
 
 app.get("/", (req, res) => {
   res.send("Server is running...");
@@ -20,77 +21,63 @@ app.post("/chat", async (req, res) => {
       return res.status(400).json({ error: "Message is required" });
     }
 
-    if (!OPENAI_KEY) {
-      console.error("OPENAI_KEY is not set");
-      return res.status(500).json({ 
-        reply: "Server configuration error: OpenAI API key is missing" 
+    if (!GEMINI_API_KEY) {
+      console.error("GEMINI_API_KEY (or GOOGLE_API_KEY) is not set");
+      return res.status(500).json({
+        reply: "Server configuration error: Gemini API key is missing"
       });
     }
 
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
+
+    const response = await fetch(geminiUrl, {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${OPENAI_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "gpt-4o-mini",
-        messages: [{ role: "user", content: message }],
+        contents: [
+          {
+            role: "user",
+            parts: [{ text: message }],
+          },
+        ],
       }),
     });
 
     const data = await response.json();
 
-    console.log("OpenAI Response Status:", response.status);
-    console.log("OpenAI Response:", JSON.stringify(data, null, 2));
+    console.log("Gemini Response Status:", response.status);
+    console.log("Gemini Response:", JSON.stringify(data, null, 2));
 
     if (!response.ok) {
-      console.error("OpenAI API Error:", data);
-      
-      // Extract error message from OpenAI response
-      let errorMessage = "OpenAI API error occurred";
-      if (data.error) {
-        if (typeof data.error === 'string') {
-          errorMessage = data.error;
-        } else if (data.error.message) {
-          errorMessage = data.error.message;
-        } else if (data.error.error && data.error.error.message) {
-          errorMessage = data.error.error.message;
-        } else {
-          errorMessage = JSON.stringify(data.error);
-        }
-      }
-      
-      return res.status(500).json({ 
-        reply: errorMessage
-      });
+      console.error("Gemini API Error:", data);
+
+      const errorMessage =
+        data.error?.message ||
+        data.error?.status ||
+        data.error?.code ||
+        "Gemini API error occurred";
+
+      return res.status(response.status).json({ reply: errorMessage });
     }
 
-    // Check if response has the expected structure
-    if (!data.choices || !Array.isArray(data.choices) || data.choices.length === 0) {
-      console.error("Invalid OpenAI response structure:", data);
-      return res.status(500).json({ 
-        reply: "Invalid response from OpenAI API" 
-      });
-    }
+    const textResponse = data.candidates?.[0]?.content?.parts?.[0]?.text;
 
-    const content = data.choices[0]?.message?.content;
-
-    if (!content || typeof content !== 'string' || content.trim() === '') {
-      console.error("Empty or invalid content from OpenAI:", data);
-      return res.status(500).json({ 
-        reply: "Received empty response from OpenAI" 
+    if (!textResponse || typeof textResponse !== "string") {
+      console.error("Invalid Gemini response structure:", data);
+      return res.status(500).json({
+        reply: "Invalid response from Gemini API"
       });
     }
 
     res.json({
-      reply: content.trim()
+      reply: textResponse.trim(),
     });
-
   } catch (error) {
     console.error("Server Error:", error);
-    res.status(500).json({ 
-      reply: `Server error: ${error.message}` 
+    res.status(500).json({
+      reply: `Server error: ${error.message}`,
     });
   }
 });
